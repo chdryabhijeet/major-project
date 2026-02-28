@@ -2,487 +2,1430 @@
 <html>
 <head>
 <meta charset="utf-8" />
-<title>Triovates — Flood Monitor (Fixed)</title>
+<title>Triovates — Flood Monitor</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+
 <style>
-:root{
-  --bg1:#eef6ff; --bg2:#f8fff7; --panel:#fff; --muted:#55606a;
-  --safe:#2E8B57; --warning:#FF8C00; --danger:#c62828; --accent:#1f6feb;
+:root {
+  --bg:        #060e17;
+  --bg2:       #091522;
+  --panel:     #0c1d2e;
+  --card:      #0f2438;
+  --border:    rgba(0,200,255,0.10);
+  --border-hi: rgba(0,200,255,0.28);
+  --teal:      #00c8ff;
+  --teal-dim:  rgba(0,200,255,0.10);
+  --teal-glow: 0 0 18px rgba(0,200,255,0.28);
+  --safe:      #00e676;
+  --warning:   #ffab00;
+  --danger:    #ff1744;
+  --text:      #b8d4e3;
+  --text-dim:  #3e5f76;
+  --text-hi:   #e6f2f8;
+  --mono:      'Space Mono', monospace;
+  --sans:      'Syne', sans-serif;
+  --gem:       #8b5cf6;
+  --gem-dim:   rgba(139,92,246,0.12);
+  --gem-glow:  0 0 18px rgba(139,92,246,0.35);
+  --gem-border:rgba(139,92,246,0.30);
 }
-html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,Arial;background:linear-gradient(180deg,var(--bg1),var(--bg2));color:#0f1724}
-body{overflow:hidden}
-.wrap{display:flex;gap:18px;padding:20px;height:100vh;box-sizing:border-box}
-#mapCard{flex:0 0 66%;border-radius:14px;overflow:hidden;box-shadow:0 20px 60px rgba(15,23,42,0.09);border:1px solid rgba(15,23,42,0.04);background:linear-gradient(180deg,rgba(255,255,255,0.6),rgba(255,255,255,0.8))}
-#mapInner{width:100%;height:100%;min-height:640px;position:relative}
-#side{width:380px;border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px;background:linear-gradient(180deg,var(--panel),#fbfdff);box-shadow:0 12px 40px rgba(15,23,42,0.06);border:1px solid rgba(15,23,42,0.03);overflow:auto}
-.panel-header{display:flex;justify-content:space-between;align-items:center;padding:10px;border-radius:10px;background:linear-gradient(90deg, rgba(31,111,235,0.04), rgba(46,139,87,0.02))}
-.badge{display:inline-block;padding:6px 12px;border-radius:999px;color:#fff;font-weight:700}
-.badge.safe{background:var(--safe)} .badge.warning{background:var(--warning)} .badge.danger{background:var(--danger)}
-.controls{display:flex;gap:8px;margin-top:10px}
-.btn{background:#fff;border:1px solid rgba(15,23,42,0.06);padding:8px 10px;border-radius:8px;font-weight:700;cursor:pointer;box-shadow:0 6px 18px rgba(15,23,42,0.04)}
-.btn:hover{background:#f8f9fa;transform:translateY(-1px)}
-.muted{color:var(--muted);font-size:13px}
-.map-footer{position:absolute;left:12px;bottom:12px;z-index:4000;background:rgba(255,255,255,0.85);padding:6px 10px;border-radius:8px;font-size:12px;color:var(--muted);box-shadow:0 6px 20px rgba(15,23,42,0.06)}
-.logo{width:34px;height:34px;border-radius:8px;background:linear-gradient(90deg,var(--accent),#2ea44f);display:inline-flex;align-items:center;justify-content:center;color:white;font-weight:800}
-.updates{max-height:220px;overflow:auto;margin-top:10px;padding-right:6px}
-.update-item{display:flex;justify-content:space-between;padding:8px;border-radius:8px;background:#fff;border:1px solid rgba(15,23,42,0.03);margin-bottom:6px}
-.leaflet-container{overflow:hidden}
-.update-item:hover{box-shadow:0 6px 18px rgba(15,23,42,0.06)}
-@media(max-width:1100px){ .wrap{flex-direction:column} #mapCard{width:100%;min-height:420px} #side{width:100%} }
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  overflow: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.06) 2px, rgba(0,0,0,0.06) 4px);
+  pointer-events: none; z-index: 9990;
+}
+
+.wrap {
+  display: flex;
+  gap: 14px;
+  padding: 14px;
+  height: 100vh;
+  box-sizing: border-box;
+}
+
+/* ── MAP CARD ── */
+#mapCard {
+  flex: 0 0 66%;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: 0 0 0 1px rgba(0,200,255,0.04), 0 24px 60px rgba(0,0,0,0.55);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+#mapCard::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 10%; right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--teal), transparent);
+  z-index: 10;
+}
+
+.map-topbar {
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(90deg, rgba(0,200,255,0.04), transparent);
+  flex-shrink: 0;
+}
+
+.brand { display: flex; align-items: center; gap: 12px; }
+
+.logo {
+  width: 36px; height: 36px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #003d6b, #005540);
+  border: 1px solid var(--border-hi);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-weight: 700; font-size: 11px;
+  color: var(--teal);
+  box-shadow: var(--teal-glow);
+  letter-spacing: 0.05em;
+}
+
+.brand-name {
+  font-family: var(--sans); font-weight: 800; font-size: 16px;
+  color: var(--text-hi); letter-spacing: 0.06em;
+}
+.brand-sub {
+  font-family: var(--mono); font-size: 9px; color: var(--teal);
+  letter-spacing: 0.18em; text-transform: uppercase; margin-top: 1px;
+}
+
+.live-pill {
+  display: flex; align-items: center; gap: 7px;
+  font-family: var(--mono); font-size: 10px;
+  color: var(--teal); letter-spacing: 0.12em;
+  padding: 5px 11px;
+  border: 1px solid var(--border-hi);
+  border-radius: 999px;
+  background: var(--teal-dim);
+}
+.live-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--safe); box-shadow: 0 0 8px var(--safe);
+  animation: blink 1.8s infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+#mapInner { flex: 1; width: 100%; position: relative; }
+
+.map-footer {
+  position: absolute; left: 14px; bottom: 14px; z-index: 4000;
+  background: rgba(6,14,23,0.82); backdrop-filter: blur(8px);
+  padding: 5px 11px; border-radius: 7px;
+  border: 1px solid var(--border);
+  font-family: var(--mono); font-size: 10px;
+  color: var(--text-dim); letter-spacing: 0.08em;
+}
+
+/* ── SIDE PANEL ── */
+#side {
+  width: 360px;
+  display: flex; flex-direction: column; gap: 10px;
+  overflow-y: auto; overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-hi) transparent;
+}
+#side::-webkit-scrollbar { width: 3px; }
+#side::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 3px; }
+
+.s-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  padding: 14px 16px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.25s;
+  flex-shrink: 0;
+}
+.s-card:hover { border-color: var(--border-hi); }
+.s-card::after {
+  content: '';
+  position: absolute; top: 0; left: 15%; right: 15%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0,200,255,0.22), transparent);
+}
+
+.section-label {
+  font-family: var(--mono); font-size: 9px;
+  letter-spacing: 0.22em; text-transform: uppercase; color: var(--teal);
+  margin-bottom: 10px;
+  display: flex; align-items: center; gap: 7px;
+}
+.section-label::before {
+  content: ''; display: inline-block; width: 14px; height: 1px; background: var(--teal);
+}
+
+.panel-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 13px 16px; border-radius: 13px;
+  background: linear-gradient(135deg, rgba(0,61,107,0.35), rgba(0,85,64,0.25));
+  border: 1px solid var(--border-hi);
+  flex-shrink: 0;
+}
+.panel-header h3 {
+  font-family: var(--sans); font-weight: 800; font-size: 15px;
+  color: var(--text-hi); letter-spacing: 0.03em;
+}
+.panel-header .sub {
+  font-family: var(--mono); font-size: 9px; color: var(--teal);
+  letter-spacing: 0.15em; margin-top: 2px;
+}
+.panel-version {
+  font-family: var(--mono); font-size: 9px; color: var(--text-dim);
+  border: 1px solid var(--border); padding: 3px 8px; border-radius: 5px;
+}
+
+#statusText {
+  font-family: var(--sans); font-weight: 800; font-size: 22px;
+  color: var(--text-hi); letter-spacing: 0.02em;
+  min-height: 28px; margin-bottom: 9px;
+}
+
+.badge {
+  display: inline-flex; align-items: center;
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  padding: 5px 12px; border-radius: 6px;
+}
+.badge.safe    { background:rgba(0,230,118,0.1);  color:var(--safe);    border:1px solid rgba(0,230,118,0.28);  box-shadow:0 0 14px rgba(0,230,118,0.2); }
+.badge.warning { background:rgba(255,171,0,0.1);  color:var(--warning); border:1px solid rgba(255,171,0,0.28);  box-shadow:0 0 14px rgba(255,171,0,0.2); }
+.badge.danger  { background:rgba(255,23,68,0.1);  color:var(--danger);  border:1px solid rgba(255,23,68,0.28);  box-shadow:0 0 14px rgba(255,23,68,0.2); animation:dpulse 1.4s infinite; }
+@keyframes dpulse { 0%,100%{box-shadow:0 0 14px rgba(255,23,68,0.2)} 50%{box-shadow:0 0 28px rgba(255,23,68,0.55)} }
+
+.prob-row { display:flex; align-items:center; gap:10px; margin-bottom:9px; }
+.prob-row:last-child { margin-bottom:0; }
+.prob-lbl {
+  width:58px; flex-shrink:0;
+  font-family:var(--mono); font-size:9px;
+  text-transform:uppercase; letter-spacing:0.12em;
+}
+.prob-lbl.s{color:var(--safe)} .prob-lbl.w{color:var(--warning)} .prob-lbl.d{color:var(--danger)}
+
+.prob-track { flex:1; height:7px; background:rgba(255,255,255,0.04); border-radius:99px; overflow:hidden; }
+#pSafe   { height:100%; border-radius:99px; width:0%; background:linear-gradient(90deg,rgba(0,230,118,0.4),var(--safe));    transition:width .8s cubic-bezier(.4,0,.2,1); }
+#pWarn   { height:100%; border-radius:99px; width:0%; background:linear-gradient(90deg,rgba(255,171,0,0.4),var(--warning)); transition:width .8s cubic-bezier(.4,0,.2,1); }
+#pDanger { height:100%; border-radius:99px; width:0%; background:linear-gradient(90deg,rgba(255,23,68,0.4),var(--danger));  transition:width .8s cubic-bezier(.4,0,.2,1); }
+
+.controls { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+.btn {
+  padding:9px; border-radius:8px;
+  border:1px solid var(--border-hi);
+  background:var(--teal-dim); color:var(--teal);
+  cursor:pointer; font-family:var(--mono); font-size:10px; font-weight:700;
+  letter-spacing:0.12em; text-transform:uppercase;
+  transition:all 0.18s;
+}
+.btn:hover { background:rgba(0,200,255,0.18); box-shadow:var(--teal-glow); transform:translateY(-1px); }
+.btn:active { transform:translateY(0); }
+
+.coords-val { font-family:var(--mono); font-size:13px; color:var(--teal); letter-spacing:0.04em; margin-bottom:3px; }
+.muted { font-family:var(--mono); font-size:10px; color:var(--text-dim); letter-spacing:0.08em; }
+
+.legend { display:flex; gap:14px; margin-top:10px; flex-wrap:wrap; }
+.legend-item { display:flex; align-items:center; gap:5px; font-family:var(--mono); font-size:9px; color:var(--text-dim); letter-spacing:0.1em; text-transform:uppercase; }
+.legend-dot { width:10px; height:10px; border-radius:3px; }
+
+.updates { display:flex; flex-direction:column; gap:5px; max-height:200px; overflow-y:auto; scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+.update-item {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:8px 10px;
+  background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:8px;
+  transition:border-color 0.2s; animation:slidein 0.25s ease;
+}
+@keyframes slidein { from{opacity:0;transform:translateX(8px)} to{opacity:1;transform:none} }
+.update-item:hover { border-color:var(--border-hi); }
+.update-time  { font-family:var(--mono); font-size:10px; color:var(--text); }
+.update-coord { font-family:var(--mono); font-size:9px; color:var(--text-dim); margin-top:2px; }
+.update-badge {
+  font-family:var(--mono); font-size:9px; font-weight:700;
+  letter-spacing:0.1em; text-transform:uppercase;
+  padding:3px 8px; border-radius:5px; flex-shrink:0;
+}
+.update-badge.safe    { background:rgba(0,230,118,0.1);  color:var(--safe); }
+.update-badge.warning { background:rgba(255,171,0,0.1);  color:var(--warning); }
+.update-badge.danger  { background:rgba(255,23,68,0.1);  color:var(--danger); }
+
+.side-footer {
+  margin-top:auto; padding:10px; text-align:center; flex-shrink:0;
+  font-family:var(--mono); font-size:9px; color:var(--text-dim);
+  letter-spacing:0.12em; text-transform:uppercase;
+  border-top:1px solid var(--border);
+}
+.side-footer span { color:var(--danger); }
+
+/* ── MAP THEME ── */
+.leaflet-tile { filter:brightness(0.5) saturate(0.55) hue-rotate(185deg); }
+.leaflet-container { background:#050d14 !important; }
+.leaflet-popup-content-wrapper {
+  background:var(--panel) !important; border:1px solid var(--border-hi) !important;
+  border-radius:10px !important; box-shadow:0 8px 24px rgba(0,0,0,0.5) !important;
+  color:var(--text) !important; font-family:var(--sans) !important;
+}
+.leaflet-popup-tip { background:var(--panel) !important; }
+.leaflet-control-zoom a {
+  background:var(--panel) !important; border-color:var(--border-hi) !important;
+  color:var(--teal) !important;
+}
+.leaflet-control-zoom a:hover { background:var(--card) !important; }
+
+/* ═══════════════════════════════════
+   EMAIL ALERT MODAL STYLES — simplified (no credential fields)
+═══════════════════════════════════ */
+#emailModalOverlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(6px);
+  z-index: 10000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+#emailModalOverlay.open { display: flex; }
+
+#emailModal {
+  background: var(--panel);
+  border: 1px solid var(--border-hi);
+  border-radius: 18px;
+  padding: 28px;
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  box-shadow: 0 0 60px rgba(0,200,255,0.12), 0 32px 80px rgba(0,0,0,0.7);
+  position: relative;
+  animation: modalPop 0.25s cubic-bezier(.4,0,.2,1);
+}
+@keyframes modalPop { from{opacity:0;transform:scale(0.92)} to{opacity:1;transform:scale(1)} }
+
+#emailModal::before {
+  content: '';
+  position: absolute; top: 0; left: 12%; right: 12%; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--teal), transparent);
+}
+
+.modal-title {
+  font-family: var(--sans); font-weight: 800; font-size: 17px;
+  color: var(--text-hi); letter-spacing: 0.03em; margin-bottom: 4px;
+}
+.modal-sub {
+  font-family: var(--mono); font-size: 9px; color: var(--teal);
+  letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 20px;
+  display: flex; align-items: center; gap: 6px;
+}
+.modal-sub::before { content:''; width:14px; height:1px; background:var(--teal); display:inline-block; }
+
+.modal-close {
+  position: absolute; top: 16px; right: 16px;
+  width: 28px; height: 28px; border-radius: 7px;
+  background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+  color: var(--text-dim); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; transition: all 0.15s;
+}
+.modal-close:hover { background:rgba(255,23,68,0.12); color:var(--danger); border-color:rgba(255,23,68,0.3); }
+
+/* Alert triggers */
+.trigger-section { margin-bottom: 16px; }
+.trigger-label {
+  font-family: var(--mono); font-size: 9px; color: var(--teal);
+  letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 6px;
+}
+.trigger-label::before { content:''; width:14px; height:1px; background:var(--teal); display:inline-block; }
+
+.trigger-options { display: flex; gap: 8px; flex-wrap: wrap; }
+.trigger-chip {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 8px;
+  border: 1px solid var(--border); cursor: pointer;
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  transition: all 0.15s; user-select: none;
+  background: rgba(255,255,255,0.02);
+  color: var(--text-dim);
+}
+.trigger-chip input[type=checkbox] { display: none; }
+.trigger-chip.warn-chip.checked  { background:rgba(255,171,0,0.12);  color:var(--warning); border-color:rgba(255,171,0,0.4); }
+.trigger-chip.danger-chip.checked { background:rgba(255,23,68,0.12); color:var(--danger);  border-color:rgba(255,23,68,0.4); }
+.trigger-chip:hover { border-color: var(--border-hi); }
+
+/* Recipient emails */
+.email-section { margin-bottom: 16px; }
+.field-row { display:flex; flex-direction:column; gap:4px; }
+.field-label {
+  font-family: var(--mono); font-size: 9px; color: var(--text-dim);
+  letter-spacing: 0.1em; text-transform: uppercase;
+}
+.field-input {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border-hi);
+  border-radius: 8px; padding: 8px 11px;
+  color: var(--text-hi); font-family: var(--mono); font-size: 11px;
+  outline: none; transition: border-color 0.18s; width: 100%;
+}
+.field-input:focus { border-color: var(--teal); box-shadow: 0 0 0 2px rgba(0,200,255,0.08); }
+.field-input::placeholder { color: var(--text-dim); }
+
+.email-add-row { display:flex; gap:7px; margin-bottom:8px; }
+.email-add-row .field-input { flex:1; }
+.btn-add {
+  padding:8px 14px; border-radius:8px;
+  border:1px solid var(--border-hi);
+  background:var(--teal-dim); color:var(--teal);
+  cursor:pointer; font-family:var(--mono); font-size:10px; font-weight:700;
+  letter-spacing:0.1em; white-space:nowrap; transition:all 0.15s;
+}
+.btn-add:hover { background:rgba(0,200,255,0.18); }
+
+.email-tags { display:flex; flex-wrap:wrap; gap:6px; min-height:28px; }
+.email-tag {
+  display:flex; align-items:center; gap:5px;
+  background:rgba(0,200,255,0.07); border:1px solid var(--border-hi);
+  color:var(--teal); border-radius:6px; padding:3px 9px;
+  font-family:var(--mono); font-size:10px;
+}
+.email-tag-remove {
+  cursor:pointer; color:var(--text-dim); font-size:11px; line-height:1;
+  transition:color 0.15s;
+}
+.email-tag-remove:hover { color:var(--danger); }
+
+/* Save + Test buttons */
+.modal-actions { display:flex; gap:8px; }
+.btn-save {
+  flex:1; padding:10px; border-radius:9px;
+  border:1px solid var(--border-hi);
+  background:var(--teal-dim); color:var(--teal);
+  cursor:pointer; font-family:var(--mono); font-size:11px; font-weight:700;
+  letter-spacing:0.12em; text-transform:uppercase; transition:all 0.18s;
+}
+.btn-save:hover { background:rgba(0,200,255,0.18); box-shadow:var(--teal-glow); }
+.btn-test {
+  padding:10px 16px; border-radius:9px;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,0.03); color:var(--text-dim);
+  cursor:pointer; font-family:var(--mono); font-size:11px; font-weight:700;
+  letter-spacing:0.12em; text-transform:uppercase; transition:all 0.18s;
+}
+.btn-test:hover { background:rgba(255,255,255,0.07); border-color:var(--border-hi); color:var(--text); }
+
+/* Toast notification */
+#toast {
+  position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: var(--panel); border: 1px solid var(--border-hi);
+  border-radius: 10px; padding: 10px 20px;
+  font-family: var(--mono); font-size: 11px; color: var(--text-hi);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  opacity: 0; pointer-events: none;
+  transition: all 0.3s cubic-bezier(.4,0,.2,1);
+  z-index: 11000; white-space: nowrap;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.success { border-color: rgba(0,230,118,0.4); color: var(--safe); }
+#toast.error   { border-color: rgba(255,23,68,0.4);  color: var(--danger); }
+#toast.warn    { border-color: rgba(255,171,0,0.4);  color: var(--warning); }
+
+/* Email alert indicator in topbar area */
+.alert-status-pill {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 9px;
+  padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-dim); cursor: pointer;
+  transition: all 0.15s; background: rgba(255,255,255,0.02);
+}
+.alert-status-pill.active {
+  border-color: rgba(0,230,118,0.35); color: var(--safe);
+  background: rgba(0,230,118,0.06);
+}
+.alert-status-pill .dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--text-dim);
+}
+.alert-status-pill.active .dot {
+  background: var(--safe); box-shadow: 0 0 6px var(--safe);
+  animation: blink 1.8s infinite;
+}
+
+/* ═══════════════════════════════════
+   GEMINI CHATBOT STYLES
+═══════════════════════════════════ */
+#chatToggle {
+  position: fixed;
+  bottom: 28px; right: 28px;
+  width: 58px; height: 58px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6d28d9, #4f46e5, #7c3aed);
+  border: 1.5px solid var(--gem-border);
+  box-shadow: var(--gem-glow), 0 8px 32px rgba(0,0,0,0.55);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999;
+  transition: all 0.22s cubic-bezier(.4,0,.2,1);
+  outline: none;
+}
+#chatToggle:hover { transform: scale(1.1) translateY(-2px); box-shadow: 0 0 32px rgba(139,92,246,0.55), 0 12px 40px rgba(0,0,0,0.6); }
+#chatToggle:active { transform: scale(0.97); }
+
+.gem-icon { width: 28px; height: 28px; transition: transform 0.3s ease; }
+#chatToggle.open .gem-icon { transform: rotate(90deg) scale(0.85); }
+
+#chatBadge {
+  position: absolute; top: -4px; right: -4px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--danger); border: 2px solid var(--bg);
+  font-family: var(--mono); font-size: 9px; font-weight: 700;
+  color: #fff; display: none; align-items: center; justify-content: center;
+  animation: dpulse 1.4s infinite;
+}
+#chatBadge.show { display: flex; }
+
+#chatWindow {
+  position: fixed;
+  bottom: 100px; right: 28px;
+  width: 380px; height: 520px;
+  border-radius: 18px;
+  background: var(--panel);
+  border: 1px solid var(--gem-border);
+  box-shadow: var(--gem-glow), 0 24px 64px rgba(0,0,0,0.7);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  z-index: 9998;
+  transform: scale(0.88) translateY(24px);
+  opacity: 0; pointer-events: none;
+  transition: all 0.28s cubic-bezier(.4,0,.2,1);
+  transform-origin: bottom right;
+}
+#chatWindow.open { transform: scale(1) translateY(0); opacity: 1; pointer-events: all; }
+#chatWindow::before {
+  content: ''; position: absolute; top: 0; left: 12%; right: 12%; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gem), transparent); z-index: 1;
+}
+
+.chat-header {
+  padding: 14px 16px 12px;
+  display: flex; align-items: center; gap: 11px;
+  border-bottom: 1px solid rgba(139,92,246,0.15);
+  background: linear-gradient(90deg, rgba(109,40,217,0.12), transparent);
+  flex-shrink: 0;
+}
+.chat-avatar {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  border: 1px solid var(--gem-border);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; box-shadow: var(--gem-glow);
+}
+.chat-title-block { flex: 1; min-width: 0; }
+.chat-title { font-family: var(--sans); font-weight: 800; font-size: 13px; color: var(--text-hi); letter-spacing: 0.04em; }
+.chat-subtitle {
+  font-family: var(--mono); font-size: 9px; color: var(--gem);
+  letter-spacing: 0.16em; text-transform: uppercase; margin-top: 1px;
+  display: flex; align-items: center; gap: 5px;
+}
+.chat-status-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--safe); box-shadow: 0 0 6px var(--safe); animation: blink 1.8s infinite; }
+.chat-close {
+  width: 28px; height: 28px; border-radius: 7px;
+  background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+  color: var(--text-dim); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; transition: all 0.15s; flex-shrink: 0;
+}
+.chat-close:hover { background: rgba(255,23,68,0.12); color: var(--danger); border-color: rgba(255,23,68,0.3); }
+
+#chatMessages {
+  flex: 1; overflow-y: auto; padding: 14px;
+  display: flex; flex-direction: column; gap: 10px;
+  scrollbar-width: thin; scrollbar-color: rgba(139,92,246,0.25) transparent;
+}
+#chatMessages::-webkit-scrollbar { width: 3px; }
+#chatMessages::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.35); border-radius: 3px; }
+
+.msg { display: flex; gap: 8px; animation: msgIn 0.22s cubic-bezier(.4,0,.2,1); }
+@keyframes msgIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+.msg.user { flex-direction: row-reverse; }
+.msg-avatar { width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 9px; font-weight: 700; margin-top: 2px; }
+.msg.bot .msg-avatar { background: linear-gradient(135deg, #4f46e5, #7c3aed); border: 1px solid var(--gem-border); color: #fff; }
+.msg.user .msg-avatar { background: linear-gradient(135deg, #003d6b, #005540); border: 1px solid var(--border-hi); color: var(--teal); }
+.msg-bubble { max-width: 78%; padding: 10px 13px; border-radius: 13px; font-family: var(--sans); font-size: 13px; line-height: 1.55; word-break: break-word; }
+.msg.bot .msg-bubble { background: rgba(109,40,217,0.12); border: 1px solid rgba(139,92,246,0.20); color: var(--text-hi); border-top-left-radius: 4px; }
+.msg.user .msg-bubble { background: rgba(0,200,255,0.08); border: 1px solid rgba(0,200,255,0.18); color: var(--text-hi); border-top-right-radius: 4px; }
+.msg-time { font-family: var(--mono); font-size: 8px; color: var(--text-dim); margin-top: 4px; letter-spacing: 0.06em; }
+.msg.user .msg-time { text-align: right; }
+.typing-indicator { display: flex; gap: 4px; align-items: center; padding: 10px 13px; background: rgba(109,40,217,0.10); border: 1px solid rgba(139,92,246,0.18); border-radius: 13px; border-top-left-radius: 4px; width: fit-content; }
+.typing-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gem); opacity: 0.6; animation: typingBounce 1.2s infinite; }
+.typing-dot:nth-child(2) { animation-delay: 0.15s; }
+.typing-dot:nth-child(3) { animation-delay: 0.30s; }
+@keyframes typingBounce { 0%,60%,100%{transform:translateY(0);opacity:0.6} 30%{transform:translateY(-5px);opacity:1} }
+
+.chat-suggestions { padding: 0 14px 10px; display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 0; }
+.suggestion-chip { font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; padding: 5px 10px; border-radius: 999px; border: 1px solid rgba(139,92,246,0.28); background: var(--gem-dim); color: var(--gem); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.suggestion-chip:hover { background: rgba(139,92,246,0.22); box-shadow: 0 0 10px rgba(139,92,246,0.3); }
+
+.chat-input-area { padding: 12px 14px; border-top: 1px solid rgba(139,92,246,0.12); background: rgba(0,0,0,0.2); display: flex; gap: 8px; align-items: flex-end; flex-shrink: 0; }
+#chatInput { flex: 1; background: rgba(255,255,255,0.04); border: 1px solid var(--border-hi); border-radius: 10px; padding: 9px 12px; color: var(--text-hi); font-family: var(--sans); font-size: 13px; resize: none; min-height: 38px; max-height: 100px; outline: none; transition: border-color 0.18s; line-height: 1.45; }
+#chatInput::placeholder { color: var(--text-dim); }
+#chatInput:focus { border-color: rgba(139,92,246,0.5); box-shadow: 0 0 0 2px rgba(139,92,246,0.08); }
+#chatSend { width: 38px; height: 38px; border-radius: 10px; background: linear-gradient(135deg, #4f46e5, #7c3aed); border: 1px solid var(--gem-border); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.18s; flex-shrink: 0; }
+#chatSend:hover { transform: scale(1.06); box-shadow: var(--gem-glow); }
+#chatSend:active { transform: scale(0.95); }
+#chatSend:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+#apiKeyBanner { padding: 10px 14px; background: rgba(255,171,0,0.06); border-top: 1px solid rgba(255,171,0,0.2); display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+#apiKeyInput { flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,171,0,0.3); border-radius: 7px; padding: 6px 10px; color: var(--text-hi); font-family: var(--mono); font-size: 10px; outline: none; }
+#apiKeyInput::placeholder { color: var(--text-dim); }
+#apiKeySave { padding: 6px 12px; border-radius: 7px; background: rgba(255,171,0,0.12); border: 1px solid rgba(255,171,0,0.3); color: var(--warning); cursor: pointer; font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: 0.1em; transition: all 0.15s; white-space: nowrap; }
+#apiKeySave:hover { background: rgba(255,171,0,0.22); }
+.key-icon { color: var(--warning); font-size: 12px; flex-shrink: 0; }
+.context-pill { display: inline-flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 9px; background: rgba(0,200,255,0.06); border: 1px solid var(--border-hi); color: var(--teal); border-radius: 5px; padding: 2px 7px; margin-bottom: 5px; }
+
+@media(max-width:1100px){
+  .wrap{flex-direction:column;overflow:auto} #mapCard{width:100%;min-height:420px;flex:0 0 420px} #side{width:100%} body{overflow:auto}
+  #chatWindow { width: calc(100vw - 32px); right: 16px; }
+  #emailModal { width: calc(100vw - 32px); }
+}
 </style>
 </head>
 <body>
+
 <div class="wrap">
+
+  <!-- MAP -->
   <div id="mapCard">
-    <div style="padding:12px;display:flex;justify-content:space-between;align-items:center">
-      <div style="display:flex;align-items:center;gap:10px"><div class="logo">TV</div><div><div style="font-weight:800">Triovates</div><div style="font-size:12px;color:var(--muted)">Flood Early Warning</div></div></div>
-      <div class="muted">Real-time • Updates every 10s</div>
+    <div class="map-topbar">
+      <div class="brand">
+        <div class="logo">TV</div>
+        <div>
+          <div class="brand-name">TRIOVATES</div>
+          <div class="brand-sub">Flood Early Warning System</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <!-- Email alert toggle pill -->
+        <div class="alert-status-pill" id="emailAlertPill" title="Configure email alerts">
+          <span class="dot"></span>
+          <span id="emailAlertPillText">Email Alerts Off</span>
+        </div>
+        <div class="live-pill">
+          <div class="live-dot"></div>
+          LIVE · 10s
+        </div>
+      </div>
     </div>
     <div id="mapInner"></div>
-    <div class="map-footer">Tiles: Stamen Terrain • Data: OpenStreetMap • <span id="mapZoomInfo">Zoom: —</span></div>
+    <div class="map-footer">OSM · <span id="mapZoomInfo">Zoom: —</span></div>
   </div>
 
+  <!-- SIDE -->
   <div id="side" aria-live="polite">
+
     <div class="panel-header">
-      <div><h3 style="margin:0">Flood Early Warning</h3><div class="muted">Real-time • Auto-updates</div></div>
-      <div style="text-align:right"><div style="font-weight:800;color:var(--accent)">Triovates</div><div style="font-size:12px;color:var(--muted)">v1.1</div></div>
+      <div>
+        <h3>Flood Monitor</h3>
+        <div class="sub">REAL-TIME · AUTO-UPDATE</div>
+      </div>
+      <div class="panel-version">v1.2</div>
     </div>
 
-    <div style="padding:8px">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <div style="font-size:13px;color:var(--muted)">Status</div>
-          <div id="statusText" style="font-weight:800;font-size:18px">—</div>
-        </div>
-        <div id="statusBadge"><span class="badge" style="background:#ddd">—</span></div>
-      </div>
+    <div class="s-card">
+      <div class="section-label">Current Status</div>
+      <div id="statusText">—</div>
+      <div id="statusBadge"></div>
+    </div>
 
-      <div style="margin-top:12px">
-        <div style="font-size:13px;color:var(--muted)">Probabilities</div>
-        <div style="margin-top:8px">
-          <div style="display:flex;align-items:center;gap:10px"><div style="width:70px;color:var(--muted)">Safe</div><div style="flex:1;height:10px;background:#eef;border-radius:999px;overflow:hidden"><div id="pSafe" style="width:0%;height:100%;background:linear-gradient(90deg,#2e8b57,#32a86a)"></div></div></div>
-          <div style="display:flex;align-items:center;gap:10px;margin-top:6px"><div style="width:70px;color:var(--muted)">Warning</div><div style="flex:1;height:10px;background:#eef;border-radius:999px;overflow:hidden"><div id="pWarn" style="width:0%;height:100%;background:linear-gradient(90deg,#ff9a2c,#ff7b00)"></div></div></div>
-          <div style="display:flex;align-items:center;gap:10px;margin-top:6px"><div style="width:70px;color:var(--muted)">Danger</div><div style="flex:1;height:10px;background:#eef;border-radius:999px;overflow:hidden"><div id="pDanger" style="width:0%;height:100%;background:linear-gradient(90deg,#c62828,#e53935)"></div></div></div>
-        </div>
-      </div>
+    <div class="s-card">
+      <div class="section-label">Risk Probabilities</div>
+      <div class="prob-row"><span class="prob-lbl s">Safe</span><div class="prob-track"><div id="pSafe"></div></div></div>
+      <div class="prob-row"><span class="prob-lbl w">Warning</span><div class="prob-track"><div id="pWarn"></div></div></div>
+      <div class="prob-row"><span class="prob-lbl d">Danger</span><div class="prob-track"><div id="pDanger"></div></div></div>
+    </div>
 
+    <div class="s-card">
+      <div class="section-label">Location Data</div>
+      <div class="coords-val" id="coordsText">—</div>
+      <div class="muted" id="lastText">—</div>
+      <div class="legend">
+        <div class="legend-item"><span class="legend-dot" style="background:var(--safe)"></span>Safe</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--warning)"></span>Warning</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--danger)"></span>Danger</div>
+      </div>
       <div class="controls">
-        <button id="centerBtn" class="btn">Center on newest</button>
-        <button id="locateBtn" class="btn">Locate me</button>
+        <button id="centerBtn" class="btn">⊕ Center</button>
+        <button id="locateBtn" class="btn">◎ Locate Me</button>
       </div>
     </div>
 
-    <div style="padding:8px">
-      <div style="display:flex;justify-content:space-between"><div style="font-weight:700">Coordinates</div><div style="font-size:12px;color:var(--muted)">Last updated</div></div>
-      <div style="display:flex;justify-content:space-between;margin-top:6px"><div id="coordsText" class="muted">—</div><div id="lastText" class="muted">—</div></div>
-      <div style="margin-top:8px;display:flex;gap:10px;color:var(--muted)"><div style="display:flex;gap:6px;align-items:center"><span style="width:12px;height:12px;background:var(--safe);display:inline-block;border-radius:3px"></span>Safe</div><div style="display:flex;gap:6px;align-items:center"><span style="width:12px;height:12px;background:var(--warning);display:inline-block;border-radius:3px"></span>Warning</div><div style="display:flex;gap:6px;align-items:center"><span style="width:12px;height:12px;background:var(--danger);display:inline-block;border-radius:3px"></span>Danger</div></div>
+    <!-- EMAIL ALERTS CARD -->
+    <div class="s-card" style="border-color:rgba(0,200,255,0.2)">
+      <div class="section-label">Email Alerts</div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--text);line-height:1.6;margin-bottom:12px">
+        Automatically send emails when flood status reaches <span style="color:var(--warning)">Warning</span> or <span style="color:var(--danger)">Danger</span> level.
+      </div>
+      <div style="display:flex;gap:8px">
+        <button id="openEmailModal" class="btn" style="flex:1">✉ Configure Alerts</button>
+      </div>
+      <div style="margin-top:10px;font-family:var(--mono);font-size:9px;color:var(--text-dim);letter-spacing:0.08em" id="emailSummary">
+        No recipients saved · Alerts disabled
+      </div>
     </div>
 
-    <div style="padding:8px">
-      <div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:800">Recent updates</div><div id="updatesCount" class="muted">—</div></div>
+    <div class="s-card">
+      <div class="section-label" style="display:flex;justify-content:space-between;align-items:center">
+        <span style="display:flex;align-items:center;gap:7px">
+          <span style="width:14px;height:1px;background:var(--teal);display:inline-block"></span>
+          Recent Updates
+        </span>
+        <span id="updatesCount" style="font-family:var(--mono);font-size:9px;color:var(--text-dim);letter-spacing:0.1em">—</span>
+      </div>
       <div id="updatesList" class="updates"></div>
     </div>
 
-    <div style="margin-top:auto;text-align:center;padding:10px;color:var(--muted)">Built with ❤️ for farmers • v1.1</div>
+    <div class="side-footer">Built for Farmers <span>♥</span></div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════
+     EMAIL ALERT MODAL — simplified (no credential fields)
+═══════════════════════════════════ -->
+<div id="emailModalOverlay">
+  <div id="emailModal">
+    <button class="modal-close" id="closeEmailModal">✕</button>
+    <div class="modal-title">📧 Email Alert Setup</div>
+    <div class="modal-sub">Recipient & Trigger Configuration</div>
+
+    <!-- Alert triggers -->
+    <div class="trigger-section">
+      <div class="trigger-label">Alert Trigger Levels</div>
+      <div class="trigger-options">
+        <label class="trigger-chip warn-chip" id="warnChip">
+          <input type="checkbox" id="triggerWarn"> 🟡 Warning
+        </label>
+        <label class="trigger-chip danger-chip" id="dangerChip">
+          <input type="checkbox" id="triggerDanger"> 🔴 Danger
+        </label>
+      </div>
+    </div>
+
+    <!-- Recipients -->
+    <div class="email-section">
+      <div class="trigger-label" style="margin-bottom:8px">Recipient Emails</div>
+      <div class="email-add-row">
+        <input class="field-input" id="newEmailInput" type="email" placeholder="farmer@example.com"/>
+        <button class="btn-add" id="addEmailBtn">+ ADD</button>
+      </div>
+      <div class="email-tags" id="emailTags"></div>
+    </div>
+
+    <!-- Cooldown -->
+    <div style="margin-bottom:16px">
+      <div class="trigger-label" style="margin-bottom:8px">Alert Cooldown</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <select id="cooldownSelect" class="field-input" style="width:auto">
+          <option value="5">5 minutes</option>
+          <option value="10">10 minutes</option>
+          <option value="15" selected>15 minutes</option>
+          <option value="30">30 minutes</option>
+          <option value="60">1 hour</option>
+        </select>
+        <span style="font-family:var(--mono);font-size:9px;color:var(--text-dim)">between same-level alerts</span>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-save" id="saveAlertConfig">💾 Save Configuration</button>
+      <button class="btn-test" id="testEmailBtn">📤 Test Email</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Chatbot toggle -->
+<button id="chatToggle" aria-label="Open AI Assistant" title="Ask Gemini AI">
+  <div id="chatBadge" class="show">1</div>
+  <svg class="gem-icon" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M14 2C14 2 15.5 9 22 10.5C15.5 12 14 19 14 19C14 19 12.5 12 6 10.5C12.5 9 14 2 14 2Z" fill="white" opacity="0.95"/>
+    <path d="M6 2C6 2 6.8 5.5 10 6.3C6.8 7.1 6 10.5 6 10.5C6 10.5 5.2 7.1 2 6.3C5.2 5.5 6 2 6 2Z" fill="white" opacity="0.55"/>
+    <path d="M22 18C22 18 22.7 21 25.5 21.8C22.7 22.6 22 25.5 22 25.5C22 25.5 21.3 22.6 18.5 21.8C21.3 21 22 18 22 18Z" fill="white" opacity="0.55"/>
+  </svg>
+</button>
+
+<!-- Chat window -->
+<div id="chatWindow" role="dialog" aria-label="Gemini AI Assistant">
+  <div class="chat-header">
+    <div class="chat-avatar">
+      <svg width="20" height="20" viewBox="0 0 28 28" fill="none">
+        <path d="M14 2C14 2 15.5 9 22 10.5C15.5 12 14 19 14 19C14 19 12.5 12 6 10.5C12.5 9 14 2 14 2Z" fill="white" opacity="0.95"/>
+        <path d="M6 2C6 2 6.8 5.5 10 6.3C6.8 7.1 6 10.5 6 10.5C6 10.5 5.2 7.1 2 6.3C5.2 5.5 6 2 6 2Z" fill="white" opacity="0.6"/>
+      </svg>
+    </div>
+    <div class="chat-title-block">
+      <div class="chat-title">Gemini AI Assistant</div>
+      <div class="chat-subtitle"><span class="chat-status-dot"></span>FLOOD MONITOR · ONLINE</div>
+    </div>
+    <button class="chat-close" id="chatClose">✕</button>
+  </div>
+  <div id="chatMessages"></div>
+  <div class="chat-suggestions" id="chatSuggestions">
+    <span class="suggestion-chip" data-q="What does a Danger flood alert mean?">⚠ Danger level?</span>
+    <span class="suggestion-chip" data-q="What safety steps should I take during a flood warning?">🛡 Safety steps</span>
+    <span class="suggestion-chip" data-q="How accurate is the flood prediction system?">📊 Accuracy?</span>
+    <span class="suggestion-chip" data-q="What causes flash floods in mountainous regions?">🏔 Flash floods</span>
+  </div>
+  <div id="apiKeyBanner">
+    <span class="key-icon">🔑</span>
+    <input id="apiKeyInput" type="password" placeholder="Paste your Gemini API key here…" autocomplete="off"/>
+    <button id="apiKeySave">SAVE</button>
+  </div>
+  <div class="chat-input-area">
+    <textarea id="chatInput" placeholder="Ask about floods, safety, or anything…" rows="1"></textarea>
+    <button id="chatSend" title="Send">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+        <path d="M22 2L11 13" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
   </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-/* ---------------- CONFIG ---------------- */
+/* ─────────────────────────────────────────────
+   ══ HARDCODED EMAILJS CREDENTIALS (hidden from UI) ══
+   Replace these values with your actual EmailJS credentials.
+───────────────────────────────────────────────*/
+const EJS_PUBLIC_KEY   = 'pwflv15g9pU3zzahN';    // e.g. 'user_xxxxxxxxxxxx'
+const EJS_SERVICE_ID   = 'service_cbhevvv';    // e.g. 'service_xxxxxxx'
+const EJS_TEMPLATE_ID  = 'template_xa49oph';   // e.g. 'template_xxxxxxx'
+
+// Hardcoded default recipients — users can add more via the modal UI
+// Leave as empty array [] if you want no pre-set recipients
+const DEFAULT_RECIPIENTS = [
+   'abhijeetsingh7005@gmail.com.com',
+  'chiragsinghal2304@gmail.com',
+  'tyagipratham26@gmail.com',
+];
+
+/* ─────────────────────────────────────────────
+   ORIGINAL MAP LOGIC (unchanged)
+───────────────────────────────────────────────*/
 const API_BASE = "http://localhost:8000";
 const FETCH_URL = API_BASE + "/recent-predictions?limit=12";
 const POLL_INTERVAL = 10000;
-const ICON_WIDTH = 44;
-const ICON_HEIGHT = 60;
-const EXTRA_PADDING = 40;
+const ICON_WIDTH = 44, ICON_HEIGHT = 60, EXTRA_PADDING = 40;
 const RETENTION_MS = 30 * 60 * 1000;
 const PROXIMITY_METERS = 100;
 
-/* ---------------- COLOR HELPERS ---------------- */
 function getColorForLabel(label) {
-  const colors = {
-    'Safe': '#2E8B57',
-    'Warning': '#FF8C00',
-    'Danger': '#c62828'
-  };
-  return colors[label] || '#2E8B57';
+  return { 'Safe':'#00e676', 'Warning':'#ffab00', 'Danger':'#ff1744' }[label] || '#00e676';
 }
-
 function getRadiusForLabel(label) {
-  const radii = {
-    'Safe': 600,
-    'Warning': 1200,
-    'Danger': 2600
-  };
-  return radii[label] || 600;
+  return { 'Safe':600, 'Warning':1200, 'Danger':2600 }[label] || 600;
 }
 
-/* ---------------- MAP SETUP ---------------- */
 const map = L.map('mapInner', { zoomControl: true }).setView([30.3165,78.0322], 11);
-const stamen = L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/terrain/{z}/{x}/{y}.jpg', { maxZoom:18, attribution: 'Map tiles by Stamen, data © OpenStreetMap contributors' });
-const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution: '© OpenStreetMap contributors' });
+const stamen = L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/terrain/{z}/{x}/{y}.jpg', { maxZoom:18, attribution:'Stamen / OSM' });
+const osm    = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',            { maxZoom:19, attribution:'© OpenStreetMap' });
 stamen.addTo(map);
-stamen.on('tileerror', () => { if (map.hasLayer(stamen)) { map.removeLayer(stamen); osm.addTo(map); } });
-L.control.zoom({ position: 'topright' }).addTo(map);
-L.control.scale({ position: 'bottomleft', imperial: false }).addTo(map);
+stamen.on('tileerror', () => { if(map.hasLayer(stamen)){ map.removeLayer(stamen); osm.addTo(map); } });
+L.control.zoom({ position:'topright' }).addTo(map);
+L.control.scale({ position:'bottomleft', imperial:false }).addTo(map);
 
-/* ---------------- STATE ---------------- */
 const markersMap = new Map();
 let history = [];
 let lastNewestId = null;
 
-/* ---------------- HELPERS ---------------- */
 function normLabel(raw){
-  if(raw === null || raw === undefined) return "Safe";
-  const s = String(raw).trim().toLowerCase();
-  if(s === '0' || s === 'safe' || s === 'ok' || s === 'normal') return "Safe";
-  if(s === '1' || s === 'warn' || s === 'warning' || s === 'caution') return "Warning";
-  if(s === '2' || s === 'danger' || s === 'alert' || s === 'critical') return "Danger";
+  if(raw===null||raw===undefined) return "Safe";
+  const s=String(raw).trim().toLowerCase();
+  if(s==='0'||s==='safe'||s==='ok'||s==='normal') return "Safe";
+  if(s==='1'||s==='warn'||s==='warning'||s==='caution') return "Warning";
+  if(s==='2'||s==='danger'||s==='alert'||s==='critical') return "Danger";
   if(s.includes('safe')) return "Safe";
   if(s.includes('warn')) return "Warning";
-  if(s.includes('danger') || s.includes('alert') || s.includes('critical')) return "Danger";
-  return String(raw).charAt(0).toUpperCase() + String(raw).slice(1);
+  if(s.includes('danger')||s.includes('alert')||s.includes('critical')) return "Danger";
+  return String(raw).charAt(0).toUpperCase()+String(raw).slice(1);
 }
 
 function renderHistory(){
   const container = document.getElementById('updatesList');
-  container.innerHTML = '';
-  history.forEach(item => {
+  container.innerHTML='';
+  history.forEach(item=>{
+    const cls = item.label==='Safe'?'safe':item.label==='Warning'?'warning':'danger';
     const d = document.createElement('div');
-    d.className = 'update-item';
-    d.innerHTML = `<div><div style="font-size:13px">${item.timeStr}</div><div style="font-size:12px;color:var(--muted)">${item.lat.toFixed(4)}, ${item.lon.toFixed(4)}</div></div><div style="font-weight:800;color:${getColorForLabel(item.label)}">${item.label}</div>`;
+    d.className='update-item';
+    d.innerHTML=`<div><div class="update-time">${item.timeStr||'—'}</div><div class="update-coord">${item.lat.toFixed(4)}, ${item.lon.toFixed(4)}</div></div><span class="update-badge ${cls}">${item.label}</span>`;
     container.appendChild(d);
   });
-  document.getElementById('updatesCount').textContent = history.length + ' recent';
+  document.getElementById('updatesCount').textContent = history.length+' recent';
 }
 
 function setProbBars(probs){
-  const safe = Number(probs['0'] ?? probs['Safe'] ?? probs['safe'] ?? 0) || 0;
-  const warn = Number(probs['1'] ?? probs['Warning'] ?? probs['warning'] ?? 0) || 0;
-  const danger = Number(probs['2'] ?? probs['Danger'] ?? probs['danger'] ?? 0) || 0;
-  document.getElementById('pSafe').style.width = (safe*100).toFixed(1) + '%';
-  document.getElementById('pWarn').style.width  = (warn*100).toFixed(1) + '%';
-  document.getElementById('pDanger').style.width= (danger*100).toFixed(1) + '%';
+  const safe   = Number(probs['0']??probs['Safe']??probs['safe']??0)||0;
+  const warn   = Number(probs['1']??probs['Warning']??probs['warning']??0)||0;
+  const danger = Number(probs['2']??probs['Danger']??probs['danger']??0)||0;
+  document.getElementById('pSafe').style.width   = (safe*100).toFixed(1)+'%';
+  document.getElementById('pWarn').style.width   = (warn*100).toFixed(1)+'%';
+  document.getElementById('pDanger').style.width = (danger*100).toFixed(1)+'%';
 }
 
 function ensureMarkerVisible(latlng){
   try{
-    const pt = map.latLngToContainerPoint(latlng);
-    const size = map.getSize();
-    const marginX = Math.round(ICON_WIDTH/2 + EXTRA_PADDING);
-    const marginY = Math.round(ICON_HEIGHT + EXTRA_PADDING);
-    let dx = 0, dy = 0;
-    if(pt.x < marginX) dx = pt.x - marginX;
-    else if(pt.x > size.x - marginX) dx = pt.x - (size.x - marginX);
-    if(pt.y < marginY) dy = pt.y - marginY;
-    else if(pt.y > size.y - marginY) dy = pt.y - (size.y - marginY);
-    if(dx !== 0 || dy !== 0) map.panBy([ -dx, -dy ], { animate:true, duration:0.45 });
-  }catch(e){ console.warn('ensureMarkerVisible error', e); }
+    const pt=map.latLngToContainerPoint(latlng), size=map.getSize();
+    const mx=Math.round(ICON_WIDTH/2+EXTRA_PADDING), my=Math.round(ICON_HEIGHT+EXTRA_PADDING);
+    let dx=0,dy=0;
+    if(pt.x<mx) dx=pt.x-mx; else if(pt.x>size.x-mx) dx=pt.x-(size.x-mx);
+    if(pt.y<my) dy=pt.y-my; else if(pt.y>size.y-my) dy=pt.y-(size.y-my);
+    if(dx!==0||dy!==0) map.panBy([-dx,-dy],{animate:true,duration:0.45});
+  }catch(e){}
 }
 
 function createPinSVG(color){
-  return `<svg width="${ICON_WIDTH}" height="${ICON_HEIGHT}" viewBox="0 0 44 60" xmlns="http://www.w3.org/2000/svg">
-    <defs><filter id="s${Math.random().toString(36).slice(2,8)}" x="-50%" y="-50%" width="200%" height="200%">
-    <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000" flood-opacity="0.12"/></filter></defs>
-    <path d="M22 2c9.665 0 17.5 7.835 17.5 17.5C39.5 35.9 22 58 22 58S4.5 35.9 4.5 19.5C4.5 9.835 12.335 2 22 2z" fill="${color}" stroke="#fff" stroke-width="2.5" filter="url(#s)"/>
-    <circle cx="22" cy="18" r="7.5" fill="rgba(255,255,255,0.95)"/>
-  </svg>`;
+  const id='s'+Math.random().toString(36).slice(2,8);
+  return `<svg width="${ICON_WIDTH}" height="${ICON_HEIGHT}" viewBox="0 0 44 60" xmlns="http://www.w3.org/2000/svg"><defs><filter id="${id}"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="${color}" flood-opacity="0.55"/></filter></defs><path d="M22 2c9.665 0 17.5 7.835 17.5 17.5C39.5 35.9 22 58 22 58S4.5 35.9 4.5 19.5C4.5 9.835 12.335 2 22 2z" fill="${color}" stroke="rgba(255,255,255,0.35)" stroke-width="2" filter="url(#${id})"/><circle cx="22" cy="19" r="7" fill="rgba(255,255,255,0.92)"/><circle cx="22" cy="19" r="3.5" fill="${color}"/></svg>`;
 }
 
 function makePinIcon(label){
-  const color = getColorForLabel(label);
-  return L.divIcon({
-    className: '',
-    html: createPinSVG(color),
-    iconSize: [ICON_WIDTH, ICON_HEIGHT],
-    iconAnchor: [Math.round(ICON_WIDTH/2), ICON_HEIGHT]
-  });
+  return L.divIcon({ className:'', html: createPinSVG(getColorForLabel(label)), iconSize:[ICON_WIDTH,ICON_HEIGHT], iconAnchor:[Math.round(ICON_WIDTH/2),ICON_HEIGHT] });
 }
 
-function haversineMeters(lat1, lon1, lat2, lon2){
-  const R = 6371000;
-  const toRad = x => x * Math.PI / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(toRad(lat1))*Math.cos(toRad(lat2)) * Math.sin(dLon/2)*Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
+function haversineMeters(lat1,lon1,lat2,lon2){
+  const R=6371000, r=x=>x*Math.PI/180, dLat=r(lat2-lat1), dLon=r(lon2-lon1);
+  const a=Math.sin(dLat/2)**2+Math.cos(r(lat1))*Math.cos(r(lat2))*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 
-function findNearbyEntry(lat, lon, maxMeters = PROXIMITY_METERS){
-  for(const [key, entry] of markersMap.entries()){
-    try{
-      const pos = entry.marker && entry.marker.getLatLng ? entry.marker.getLatLng() : null;
-      if(!pos) continue;
-      const d = haversineMeters(pos.lat, pos.lng, lat, lon);
-      if(d <= maxMeters) return { key, entry, distance: d };
-    }catch(e){}
+function findNearbyEntry(lat,lon,maxM=PROXIMITY_METERS){
+  for(const [key,entry] of markersMap.entries()){
+    try{ const pos=entry.marker&&entry.marker.getLatLng?entry.marker.getLatLng():null; if(!pos) continue; if(haversineMeters(pos.lat,pos.lng,lat,lon)<=maxM) return {key,entry}; }catch(e){}
   }
   return null;
 }
 
-function removeMarkerAndHalo(entry) {
-  try { if(entry.marker) map.removeLayer(entry.marker); } catch(e) {}
-  try { if(entry.halo) map.removeLayer(entry.halo); } catch(e) {}
+function removeMarkerAndHalo(entry){
+  try{if(entry.marker) map.removeLayer(entry.marker);}catch(e){}
+  try{if(entry.halo)   map.removeLayer(entry.halo);}catch(e){}
 }
 
-function createMarkerAndHalo(latlng, label, popupContent) {
-  const color = getColorForLabel(label);
-  const radius = getRadiusForLabel(label);
-  
-  const icon = makePinIcon(label);
-  const marker = L.marker(latlng, { icon: icon, interactive: true }).addTo(map);
-  marker.bindPopup(popupContent || `<b>Triovates</b><br><span style="color:${color}">Status: ${label}</span>`);
-  
-  const halo = L.circle(latlng, { 
-    radius: radius, 
-    color: color, 
-    weight: 2, 
-    fill: false,
-    opacity: 0.7
-  }).addTo(map);
-  
-  return { marker, halo };
+function createMarkerAndHalo(latlng,label,popupContent){
+  const color=getColorForLabel(label);
+  const marker=L.marker(latlng,{icon:makePinIcon(label),interactive:true}).addTo(map);
+  marker.bindPopup(popupContent||`<b>Triovates</b><br><span style="color:${color};font-weight:700">${label}</span>`);
+  const halo=L.circle(latlng,{radius:getRadiusForLabel(label),color,weight:1.5,fill:false,opacity:0.55}).addTo(map);
+  return {marker,halo};
 }
 
-function updateMarkerLabel(entry, newLabel, latlng, popupContent) {
-  const oldLabel = entry._triovates_label;
-  
-  // Always recreate if label changed to ensure proper color update
-  if (oldLabel !== newLabel) {
-    console.log(`Updating marker from ${oldLabel} to ${newLabel}`);
-    const wasPopupOpen = entry.marker && entry.marker.isPopupOpen && entry.marker.isPopupOpen();
-    
+function updateMarkerLabel(entry,newLabel,latlng,popupContent){
+  if(entry._triovates_label!==newLabel){
+    const wasOpen=entry.marker&&entry.marker.isPopupOpen&&entry.marker.isPopupOpen();
     removeMarkerAndHalo(entry);
-    const { marker, halo } = createMarkerAndHalo(latlng, newLabel, popupContent);
-    
-    entry.marker = marker;
-    entry.halo = halo;
-    entry._triovates_label = newLabel;
-    
-    if (wasPopupOpen) {
-      entry.marker.openPopup();
-    }
-    
+    const {marker,halo}=createMarkerAndHalo(latlng,newLabel,popupContent);
+    entry.marker=marker; entry.halo=halo; entry._triovates_label=newLabel;
+    if(wasOpen) entry.marker.openPopup();
     return true;
   }
-  
-  // Just update position if label hasn't changed
+  try{ entry.marker.setLatLng(latlng); if(entry.halo) entry.halo.setLatLng(latlng); return true; }catch(e){ return false; }
+}
+
+function syncMarkersWithData(rows){
+  const now=Date.now(), seenKeys=new Set();
+  rows.forEach(row=>{
+    const rowId=row.id!==undefined&&row.id!==null?String(row.id):null;
+    const lat=Number(row.latitude), lon=Number(row.longitude);
+    if(Number.isNaN(lat)||Number.isNaN(lon)) return;
+    const latlng=[lat,lon], label=normLabel(row.label);
+    const ts=row.timestamp?new Date(row.timestamp).toLocaleString():'';
+    const color=getColorForLabel(label);
+    const popup=`<b style="color:${color};font-family:'Syne',sans-serif">${label}</b><br><small style="color:#b8d4e3;font-family:'Space Mono',monospace">${ts}</small><br><small style="color:#3e5f76;font-family:'Space Mono',monospace">${lat.toFixed(5)}, ${lon.toFixed(5)}</small>`;
+    if(rowId&&markersMap.has(rowId)){ const entry=markersMap.get(rowId); updateMarkerLabel(entry,label,latlng,popup); entry.lastSeenTs=now; seenKeys.add(rowId); return; }
+    const nearby=findNearbyEntry(lat,lon,PROXIMITY_METERS);
+    if(nearby){ const {key:ek,entry}=nearby; updateMarkerLabel(entry,label,latlng,popup); entry.lastSeenTs=now; if(rowId&&ek!==rowId){ markersMap.delete(ek); markersMap.set(rowId,entry); entry.sourceId=rowId; seenKeys.add(rowId); } else seenKeys.add(ek); return; }
+    const nk=rowId??`gen_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+    try{ const {marker,halo}=createMarkerAndHalo(latlng,label,popup); markersMap.set(nk,{marker,halo,lastSeenTs:now,_triovates_label:label,sourceId:rowId??null}); seenKeys.add(nk); }catch(e){}
+  });
+  for(const [key,entry] of markersMap.entries()){ if(!seenKeys.has(key)&&(now-entry.lastSeenTs)>RETENTION_MS){ removeMarkerAndHalo(entry); markersMap.delete(key); } }
+  if(rows.length>0){
+    const n=rows[0], nid=n.id!==undefined&&n.id!==null?String(n.id):null;
+    const nlat=Number(n.latitude), nlon=Number(n.longitude);
+    if((nid&&nid!==lastNewestId)||(!nid&&lastNewestId===null)){ lastNewestId=nid??null; map.flyTo([nlat,nlon],Math.max(map.getZoom(),12),{animate:true,duration:0.7}); ensureMarkerVisible([nlat,nlon]); }
+  }
+}
+
+async function fetchRecentAndRender(){
+  const urls=[FETCH_URL,API_BASE+"/recent_predictions",API_BASE+"/predictions?limit=12",API_BASE+"/latest-prediction"];
+  let data=null;
+  for(const url of urls){
+    try{
+      const res=await fetch(url,{cache:"no-store"}); if(!res.ok) continue;
+      data=await res.json();
+      if(!Array.isArray(data)){ if(data&&(data.latitude!==undefined||data.label!==undefined)) data=[data]; else if(data&&Array.isArray(data.results)) data=data.results; else if(data&&Array.isArray(data.data)) data=data.data; else data=Array.isArray(data)?data:[data]; }
+      break;
+    }catch(e){ continue; }
+  }
+  if(!data){ setTimeout(fetchRecentAndRender,POLL_INTERVAL); return; }
+  data.sort((a,b)=>(b.timestamp?new Date(b.timestamp).getTime():0)-(a.timestamp?new Date(a.timestamp).getTime():0));
+  if(data.length>50) data=data.slice(0,50);
+  if(data.length>0){
+    const n=data[0], label=normLabel(n.label), cls=label==='Safe'?'safe':label==='Warning'?'warning':'danger';
+    document.getElementById('statusText').textContent=label;
+    document.getElementById('statusText').style.color=getColorForLabel(label);
+    const bw=document.getElementById('statusBadge'); bw.innerHTML='';
+    const sp=document.createElement('span'); sp.className='badge '+cls; sp.textContent=label; bw.appendChild(sp);
+    setProbBars(n.probabilities||{});
+    document.getElementById('coordsText').textContent=`${Number(n.latitude).toFixed(6)}, ${Number(n.longitude).toFixed(6)}`;
+    document.getElementById('lastText').textContent=n.timestamp?new Date(n.timestamp).toLocaleString():new Date().toLocaleString();
+    history=data.map(r=>({label:normLabel(r.label),lat:Number(r.latitude),lon:Number(r.longitude),timeStr:r.timestamp?new Date(r.timestamp).toLocaleString():''}));
+    renderHistory();
+
+    // ── Trigger email alerts ──
+    checkAndSendAlerts(label, n);
+  } else { document.getElementById('statusText').textContent='—'; }
+  syncMarkersWithData(data);
+  setTimeout(fetchRecentAndRender,POLL_INTERVAL);
+}
+
+document.getElementById('centerBtn').addEventListener('click',()=>{
+  if(lastNewestId){ for(const [key,entry] of markersMap.entries()){ if(key===lastNewestId||(entry.sourceId&&String(entry.sourceId)===String(lastNewestId))){ const ll=entry.marker.getLatLng(); map.flyTo(ll,Math.max(map.getZoom(),12),{animate:true,duration:0.6}); ensureMarkerVisible([ll.lat,ll.lng]); return; } } }
+});
+
+document.getElementById('locateBtn').addEventListener('click',()=>{
+  if(!navigator.geolocation){alert('Geolocation unavailable');return;}
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const lat=pos.coords.latitude,lon=pos.coords.longitude;
+    L.circleMarker([lat,lon],{radius:7,fillOpacity:0.9,color:'#00c8ff',fillColor:'#00c8ff'}).addTo(map).bindPopup('<b style="color:#00c8ff">You are here</b>').openPopup();
+    map.flyTo([lat,lon],13,{animate:true,duration:0.7});
+  },err=>alert('Could not get location: '+err.message));
+});
+
+map.on('zoomend',()=>{ document.getElementById('mapZoomInfo').textContent='Zoom: '+map.getZoom(); });
+fetchRecentAndRender();
+setTimeout(()=>map.invalidateSize(),700);
+window.addEventListener('resize',()=>setTimeout(()=>map.invalidateSize(),300));
+
+
+/* ═══════════════════════════════════════════
+   EMAIL ALERT SYSTEM
+   Credentials are hardcoded above — NOT stored in localStorage
+═══════════════════════════════════════════ */
+
+// ── Load only user-configurable settings (trigger levels, recipients, cooldown) ──
+function loadAlertConfig() {
+  try { return JSON.parse(localStorage.getItem('triovates_alert_config') || 'null'); } catch(e) { return null; }
+}
+function saveAlertConfig(cfg) {
+  // Only save non-sensitive settings; credentials stay hardcoded
+  const { ejsPublicKey, ejsServiceId, ejsTemplateId, ...safeConfig } = cfg;
+  localStorage.setItem('triovates_alert_config', JSON.stringify(safeConfig));
+}
+
+const savedConfig = loadAlertConfig() || {};
+
+let alertConfig = {
+  triggerWarn:     savedConfig.triggerWarn    !== undefined ? savedConfig.triggerWarn    : true,
+  triggerDanger:   savedConfig.triggerDanger  !== undefined ? savedConfig.triggerDanger  : true,
+  recipients:      savedConfig.recipients     || [...DEFAULT_RECIPIENTS],
+  cooldownMinutes: savedConfig.cooldownMinutes || 15,
+  // Credentials always come from hardcoded constants — never from storage
+  ejsPublicKey:  EJS_PUBLIC_KEY,
+  ejsServiceId:  EJS_SERVICE_ID,
+  ejsTemplateId: EJS_TEMPLATE_ID,
+};
+
+// Track last sent time per level to enforce cooldown
+const lastSentAt = { Warning: 0, Danger: 0 };
+
+// ── Toast ──
+function showToast(msg, type='success', ms=3200) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + type;
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.className = ''; }, ms);
+}
+
+// ── Update pill & summary ──
+function updateAlertUI() {
+  const pill = document.getElementById('emailAlertPill');
+  const pillText = document.getElementById('emailAlertPillText');
+  const summary = document.getElementById('emailSummary');
+  const hasRecipients = alertConfig.recipients.length > 0;
+  const hasKey = !!(EJS_PUBLIC_KEY && EJS_PUBLIC_KEY !== 'YOUR_EMAILJS_PUBLIC_KEY');
+  const active = hasRecipients && hasKey && (alertConfig.triggerWarn || alertConfig.triggerDanger);
+
+  if (active) {
+    pill.classList.add('active');
+    const levels = [];
+    if (alertConfig.triggerWarn) levels.push('Warning');
+    if (alertConfig.triggerDanger) levels.push('Danger');
+    pillText.textContent = `Email Alerts On (${levels.join('+')} → ${alertConfig.recipients.length} recipient${alertConfig.recipients.length>1?'s':''})`;
+    summary.textContent = `${alertConfig.recipients.length} recipient(s) · Alerts on ${levels.join(' + ')} · ${alertConfig.cooldownMinutes}min cooldown`;
+    summary.style.color = 'var(--safe)';
+  } else {
+    pill.classList.remove('active');
+    pillText.textContent = 'Email Alerts Off';
+    if (!hasKey) { summary.textContent = 'EmailJS credentials not configured in code'; summary.style.color = 'var(--warning)'; }
+    else if (!hasRecipients) { summary.textContent = 'No recipients saved'; summary.style.color = 'var(--text-dim)'; }
+    else { summary.textContent = 'No alert levels selected'; summary.style.color = 'var(--text-dim)'; }
+  }
+}
+
+// ── Email sender via EmailJS (uses hardcoded credentials) ──
+async function sendFloodAlert(status, dataRow) {
+  if (!EJS_PUBLIC_KEY || EJS_PUBLIC_KEY === 'YOUR_EMAILJS_PUBLIC_KEY') return false;
+  if (alertConfig.recipients.length === 0) return false;
+
+  emailjs.init(EJS_PUBLIC_KEY);
+
+  const lat = Number(dataRow.latitude).toFixed(5);
+  const lon = Number(dataRow.longitude).toFixed(5);
+  const ts  = dataRow.timestamp ? new Date(dataRow.timestamp).toLocaleString() : new Date().toLocaleString();
+  const probs = dataRow.probabilities || {};
+  const safeP   = ((Number(probs['0']??probs['Safe']??probs['safe']??0))*100).toFixed(0);
+  const warnP   = ((Number(probs['1']??probs['Warning']??probs['warning']??0))*100).toFixed(0);
+  const dangerP = ((Number(probs['2']??probs['Danger']??probs['danger']??0))*100).toFixed(0);
+
+  const emoji = status === 'Danger' ? '🔴 DANGER' : '🟡 WARNING';
+  const templateParams = {
+    status: `${emoji} - FLOOD ALERT`,
+    location: `${lat}, ${lon}`,
+    timestamp: ts,
+    probabilities: `Safe: ${safeP}%  |  Warning: ${warnP}%  |  Danger: ${dangerP}%`,
+    message: status === 'Danger'
+      ? '⚠️ IMMEDIATE ACTION REQUIRED: Evacuate low-lying areas. Move to higher ground NOW. Contact local emergency services.'
+      : '⚠️ WARNING: Elevated flood risk detected. Prepare for possible evacuation. Monitor updates every few minutes.',
+    dashboard_url: window.location.href
+  };
+
+  const sendPromises = alertConfig.recipients.map(email => {
+    return emailjs.send(
+      EJS_SERVICE_ID,
+      EJS_TEMPLATE_ID,
+      { ...templateParams, to_email: email }
+    );
+  });
+
   try {
-    entry.marker.setLatLng(latlng);
-    if (entry.halo) entry.halo.setLatLng(latlng);
+    await Promise.all(sendPromises);
     return true;
   } catch(e) {
-    console.warn("Position update failed:", e);
+    console.error('EmailJS error:', e);
     return false;
   }
 }
 
-/* ---------------- SYNC LOGIC ---------------- */
-function syncMarkersWithData(rows){
+// ── Check if we should send alert ──
+async function checkAndSendAlerts(label, dataRow) {
+  if (label === 'Safe') return;
+  if (label === 'Warning' && !alertConfig.triggerWarn) return;
+  if (label === 'Danger'  && !alertConfig.triggerDanger) return;
+  if (!EJS_PUBLIC_KEY || EJS_PUBLIC_KEY === 'YOUR_EMAILJS_PUBLIC_KEY') return;
+  if (alertConfig.recipients.length === 0) return;
+
   const now = Date.now();
-  const seenKeys = new Set();
+  const cooldownMs = (alertConfig.cooldownMinutes || 15) * 60 * 1000;
+  if ((now - lastSentAt[label]) < cooldownMs) return;
 
-  rows.forEach(row => {
-    const rowId = (row.id !== undefined && row.id !== null) ? String(row.id) : null;
-    const lat = Number(row.latitude);
-    const lon = Number(row.longitude);
-    if(Number.isNaN(lat) || Number.isNaN(lon)) return;
-    
-    const latlng = [lat, lon];
-    const label = normLabel(row.label);
-    const timestamp = row.timestamp ? new Date(row.timestamp).toLocaleString() : '';
-    const popupContent = `<b>Triovates Flood Monitor</b><br><span style="color:${getColorForLabel(label)};font-weight:700">Status: ${label}</span><br><small>${timestamp}</small>`;
-
-    let key = rowId ?? `${lat.toFixed(6)}|${lon.toFixed(6)}`;
-
-    // Check for existing marker by ID
-    if(rowId && markersMap.has(rowId)){
-      const entry = markersMap.get(rowId);
-      updateMarkerLabel(entry, label, latlng, popupContent);
-      entry.lastSeenTs = now;
-      entry.sourceId = rowId;
-      seenKeys.add(rowId);
-      return;
-    }
-
-    // Check for nearby marker
-    const nearby = findNearbyEntry(lat, lon, PROXIMITY_METERS);
-    if(nearby){
-      const { key: existingKey, entry } = nearby;
-      updateMarkerLabel(entry, label, latlng, popupContent);
-      entry.lastSeenTs = now;
-      
-      // Re-key if we have an ID
-      if(rowId && existingKey !== rowId){
-        markersMap.delete(existingKey);
-        markersMap.set(rowId, entry);
-        entry.sourceId = rowId;
-        seenKeys.add(rowId);
-      } else {
-        seenKeys.add(existingKey);
-      }
-      return;
-    }
-
-    // Create new marker
-    const newKey = rowId ?? `gen_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
-    try{
-      const { marker, halo } = createMarkerAndHalo(latlng, label, popupContent);
-      markersMap.set(newKey, { 
-        marker, 
-        halo, 
-        lastSeenTs: now, 
-        _triovates_label: label, 
-        sourceId: rowId ?? null 
-      });
-      seenKeys.add(newKey);
-    }catch(e){ 
-      console.warn("Failed to create marker:", e);
-    }
-  });
-
-  // Cleanup old markers
-  for(const [key, entry] of markersMap.entries()){
-    if(!seenKeys.has(key)){
-      if((now - entry.lastSeenTs) > RETENTION_MS){
-        removeMarkerAndHalo(entry);
-        markersMap.delete(key);
-      }
-    }
-  }
-
-  // Auto-center on newest
-  if(rows.length > 0){
-    const newest = rows[0];
-    const newestId = newest.id !== undefined && newest.id !== null ? String(newest.id) : null;
-    const newestLat = Number(newest.latitude);
-    const newestLon = Number(newest.longitude);
-    
-    if((newestId && newestId !== lastNewestId) || (!newestId && lastNewestId === null)){
-      lastNewestId = newestId ?? null;
-      map.flyTo([newestLat, newestLon], Math.max(map.getZoom(), 12), { animate:true, duration: 0.7 });
-      ensureMarkerVisible([newestLat, newestLon]);
-    }
+  lastSentAt[label] = now;
+  const ok = await sendFloodAlert(label, dataRow);
+  if (ok) {
+    const count = alertConfig.recipients.length;
+    showToast(`📧 ${label} alert sent to ${count} recipient${count>1?'s':''}!`, label === 'Danger' ? 'error' : 'warn', 4000);
   }
 }
 
-/* ---------------- FETCH & RENDER ---------------- */
-async function fetchRecentAndRender(){
-  const urlsToTry = [
-    FETCH_URL,
-    API_BASE + "/recent_predictions",
-    API_BASE + "/predictions?limit=12",
-    API_BASE + "/latest-prediction"
-  ];
+/* ── Modal Logic ── */
+const emailModalOverlay = document.getElementById('emailModalOverlay');
 
-  let data = null;
-  let lastErr = null;
+function openEmailModal() {
+  document.getElementById('cooldownSelect').value = String(alertConfig.cooldownMinutes || 15);
 
-  for(const url of urlsToTry){
-    try{
-      const res = await fetch(url, { cache: "no-store" });
-      if(res.status === 404){ lastErr = { url, status:404 }; continue; }
-      if(!res.ok){ lastErr = { url, status: res.status }; continue; }
-      data = await res.json();
+  const warnChip   = document.getElementById('warnChip');
+  const dangerChip = document.getElementById('dangerChip');
+  document.getElementById('triggerWarn').checked   = alertConfig.triggerWarn;
+  document.getElementById('triggerDanger').checked = alertConfig.triggerDanger;
+  warnChip.classList.toggle('checked', alertConfig.triggerWarn);
+  dangerChip.classList.toggle('checked', alertConfig.triggerDanger);
 
-      if(!Array.isArray(data)){
-        if(data && (data.latitude !== undefined || data.label !== undefined || data.timestamp !== undefined)) data = [data];
-        else if(data && Array.isArray(data.results)) data = data.results;
-        else if(data && Array.isArray(data.data)) data = data.data;
-        else data = Array.isArray(data) ? data : [data];
-      }
-      break;
-    }catch(err){
-      lastErr = { url, error: err.message ?? String(err) };
-      continue;
-    }
-  }
-
-  if(!data){
-    console.error("All endpoints failed. Last error:", lastErr);
-    setTimeout(fetchRecentAndRender, POLL_INTERVAL);
-    return;
-  }
-
-  data.sort((a,b)=>{
-    const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
-    const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
-    return tb - ta;
-  });
-
-  const LIMIT = 50;
-  if(data.length > LIMIT) data = data.slice(0, LIMIT);
-
-  if(data.length > 0){
-    const newest = data[0];
-    const label = normLabel(newest.label);
-    
-    document.getElementById('statusText').textContent = label;
-    document.getElementById('statusText').style.color = getColorForLabel(label);
-    
-    const badgeWrap = document.getElementById('statusBadge'); 
-    badgeWrap.innerHTML = '';
-    const span = document.createElement('span');
-    span.className = 'badge ' + (label==="Safe" ? 'safe' : label==="Warning" ? 'warning' : 'danger');
-    span.textContent = label;
-    badgeWrap.appendChild(span);
-
-    setProbBars(newest.probabilities || {});
-    document.getElementById('coordsText').textContent = `${Number(newest.latitude).toFixed(6)}, ${Number(newest.longitude).toFixed(6)}`;
-    document.getElementById('lastText').textContent = newest.timestamp ? new Date(newest.timestamp).toLocaleString() : new Date().toLocaleString();
-
-    history = data.map(r => ({ 
-      label: normLabel(r.label), 
-      lat: Number(r.latitude), 
-      lon: Number(r.longitude), 
-      timeStr: r.timestamp ? new Date(r.timestamp).toLocaleString() : '' 
-    }));
-    renderHistory();
-  } else {
-    document.getElementById('statusText').textContent = '—';
-  }
-
-  syncMarkersWithData(data);
-  setTimeout(fetchRecentAndRender, POLL_INTERVAL);
+  renderEmailTags();
+  emailModalOverlay.classList.add('open');
 }
 
-/* ---------------- CONTROLS ---------------- */
-document.getElementById('centerBtn').addEventListener('click', ()=>{
-  if(lastNewestId){
-    for(const [key, entry] of markersMap.entries()){
-      if(key === lastNewestId || (entry.sourceId && String(entry.sourceId) === String(lastNewestId))){
-        const latlng = entry.marker.getLatLng();
-        map.flyTo(latlng, Math.max(map.getZoom(), 12), { animate:true, duration:0.6 });
-        ensureMarkerVisible([latlng.lat, latlng.lng]);
-        return;
-      }
-    }
-    alert('Newest marker not found on map yet.');
-  } else {
-    alert('No newest marker yet.');
+function closeEmailModal() {
+  emailModalOverlay.classList.remove('open');
+}
+
+document.getElementById('openEmailModal').addEventListener('click', openEmailModal);
+document.getElementById('emailAlertPill').addEventListener('click', openEmailModal);
+document.getElementById('closeEmailModal').addEventListener('click', closeEmailModal);
+emailModalOverlay.addEventListener('click', e => { if(e.target === emailModalOverlay) closeEmailModal(); });
+
+// Trigger chips toggle
+['warnChip','dangerChip'].forEach(id => {
+  document.getElementById(id).addEventListener('click', function() {
+    const cb = this.querySelector('input[type=checkbox]');
+    cb.checked = !cb.checked;
+    this.classList.toggle('checked', cb.checked);
+  });
+});
+
+// Email tags
+let pendingRecipients = [];
+
+function renderEmailTags() {
+  pendingRecipients = [...(alertConfig.recipients || [])];
+  _drawTags();
+}
+
+function renderEmailTagsFromPending() {
+  _drawTags();
+}
+
+function _drawTags() {
+  const container = document.getElementById('emailTags');
+  container.innerHTML = '';
+  pendingRecipients.forEach((email, i) => {
+    const tag = document.createElement('div');
+    tag.className = 'email-tag';
+    tag.innerHTML = `<span>${email}</span><span class="email-tag-remove" data-i="${i}">✕</span>`;
+    container.appendChild(tag);
+  });
+  container.querySelectorAll('.email-tag-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      pendingRecipients.splice(Number(btn.dataset.i), 1);
+      renderEmailTagsFromPending();
+    });
+  });
+}
+
+document.getElementById('addEmailBtn').addEventListener('click', () => {
+  const input = document.getElementById('newEmailInput');
+  const val = input.value.trim();
+  if (!val || !val.includes('@')) { input.style.borderColor='var(--danger)'; setTimeout(()=>input.style.borderColor='',1200); return; }
+  if (pendingRecipients.includes(val)) { showToast('Email already added', 'warn'); return; }
+  pendingRecipients.push(val);
+  input.value = '';
+  renderEmailTagsFromPending();
+});
+
+document.getElementById('newEmailInput').addEventListener('keydown', e => {
+  if(e.key === 'Enter') document.getElementById('addEmailBtn').click();
+});
+
+// Save (credentials always come from hardcoded constants)
+document.getElementById('saveAlertConfig').addEventListener('click', () => {
+  const tw = document.getElementById('triggerWarn').checked;
+  const td = document.getElementById('triggerDanger').checked;
+  const cd = Number(document.getElementById('cooldownSelect').value);
+
+  alertConfig = {
+    ejsPublicKey:  EJS_PUBLIC_KEY,
+    ejsServiceId:  EJS_SERVICE_ID,
+    ejsTemplateId: EJS_TEMPLATE_ID,
+    triggerWarn:   tw,
+    triggerDanger: td,
+    recipients:    [...pendingRecipients],
+    cooldownMinutes: cd
+  };
+  saveAlertConfig(alertConfig);
+  updateAlertUI();
+  closeEmailModal();
+  showToast('✅ Alert config saved!', 'success');
+});
+
+// Test email (uses hardcoded credentials)
+document.getElementById('testEmailBtn').addEventListener('click', async () => {
+  if (!EJS_PUBLIC_KEY || EJS_PUBLIC_KEY === 'YOUR_EMAILJS_PUBLIC_KEY') {
+    showToast('❌ EmailJS credentials not set in code', 'error'); return;
+  }
+  if (pendingRecipients.length === 0) { showToast('Add at least one recipient email', 'warn'); return; }
+
+  showToast('📤 Sending test email…', 'warn', 8000);
+  emailjs.init(EJS_PUBLIC_KEY);
+
+  const testParams = {
+    status: '🧪 TEST ALERT - Triovates',
+    location: '30.31650, 78.03220',
+    timestamp: new Date().toLocaleString(),
+    probabilities: 'Safe: 10%  |  Warning: 35%  |  Danger: 55%',
+    message: 'This is a TEST alert from Triovates Flood Monitor. Your email alerts are configured correctly! ✅',
+    dashboard_url: window.location.href
+  };
+
+  try {
+    await Promise.all(pendingRecipients.map(email =>
+      emailjs.send(EJS_SERVICE_ID, EJS_TEMPLATE_ID, { ...testParams, to_email: email })
+    ));
+    showToast(`✅ Test email sent to ${pendingRecipients.length} recipient(s)!`, 'success', 4500);
+  } catch(e) {
+    showToast('❌ Failed: ' + (e.text || e.message || 'Check credentials in code'), 'error', 5000);
   }
 });
 
-document.getElementById('locateBtn').addEventListener('click', ()=>{
-  if(!navigator.geolocation){ alert('Geolocation unavailable'); return; }
-  navigator.geolocation.getCurrentPosition(pos=>{
-    const lat = pos.coords.latitude, lon = pos.coords.longitude;
-    L.circleMarker([lat,lon], { radius:6, fill:true, fillOpacity:0.9, color:'#2b7cff' }).addTo(map).bindPopup('You are here').openPopup();
-    map.flyTo([lat,lon], 13, { animate:true, duration:0.7 });
-  }, err => { alert('Could not get location: ' + err.message); });
+// Init UI
+updateAlertUI();
+
+
+/* ═══════════════════════════════════════════
+   GEMINI CHATBOT LOGIC
+═══════════════════════════════════════════ */
+let geminiApiKey = localStorage.getItem('triovates_gemini_key') || 'AIzaSyDVP5fZ9qf053OuqkAgqM74PE4pfNhrhdc';
+let chatOpen = false, isTyping = false, conversationHistory = [], unreadCount = 0;
+
+const SYSTEM_PROMPT = `You are ARIA (Adaptive Risk Intelligence Assistant), an AI embedded in the Triovates Flood Early Warning System — a real-time flood monitoring dashboard serving farmers and rural communities in flood-prone regions of Uttarakhand, India.
+
+## FLOOD RISK LEVELS
+- 🟢 SAFE: Normal. Routine monitoring.
+- 🟡 WARNING: Elevated risk. Prepare, check evacuation routes.
+- 🔴 DANGER: Immediate threat. Evacuate NOW.
+
+## RULES
+- Keep answers under 150 words unless detail is asked
+- Use bullet points for action steps
+- Always prioritize safety
+- If DANGER, lead every response with evacuation reminder
+- Respond in Hindi if user writes in Hindi`;
+
+const chatToggle   = document.getElementById('chatToggle');
+const chatWindow   = document.getElementById('chatWindow');
+const chatClose    = document.getElementById('chatClose');
+const chatMessages = document.getElementById('chatMessages');
+const chatInput    = document.getElementById('chatInput');
+const chatSend     = document.getElementById('chatSend');
+const chatBadge    = document.getElementById('chatBadge');
+const apiKeyBanner = document.getElementById('apiKeyBanner');
+const apiKeyInput  = document.getElementById('apiKeyInput');
+const apiKeySave   = document.getElementById('apiKeySave');
+const suggestions  = document.getElementById('chatSuggestions');
+
+function initChat() {
+  if (geminiApiKey) apiKeyBanner.style.display = 'none';
+  addBotMessage(`👋 Hi! I'm your **Gemini AI assistant** for the Triovates Flood Monitor.\n\nI can help you understand flood alerts, safety procedures, and what the risk levels mean. What would you like to know?`, true);
+}
+
+chatToggle.addEventListener('click', () => {
+  chatOpen = !chatOpen;
+  chatWindow.classList.toggle('open', chatOpen);
+  chatToggle.classList.toggle('open', chatOpen);
+  if (chatOpen) { unreadCount=0; chatBadge.classList.remove('show'); chatBadge.textContent='0'; setTimeout(()=>chatInput.focus(),300); }
+});
+chatClose.addEventListener('click', () => { chatOpen=false; chatWindow.classList.remove('open'); chatToggle.classList.remove('open'); });
+
+if (geminiApiKey) apiKeyBanner.style.display = 'none';
+apiKeySave.addEventListener('click', () => {
+  const key = apiKeyInput.value.trim();
+  if (!key) { apiKeyInput.style.borderColor='var(--danger)'; return; }
+  geminiApiKey = key;
+  localStorage.setItem('triovates_gemini_key', key);
+  apiKeyBanner.style.display = 'none';
+  addBotMessage('✅ API key saved! You can now chat with me.');
+});
+apiKeyInput.addEventListener('keydown', e => { if(e.key==='Enter') apiKeySave.click(); });
+
+suggestions.querySelectorAll('.suggestion-chip').forEach(chip => {
+  chip.addEventListener('click', () => { chatInput.value=chip.dataset.q; sendMessage(); suggestions.style.display='none'; });
 });
 
-map.on('zoomend', ()=>{ 
-  document.getElementById('mapZoomInfo').textContent = 'Zoom: ' + map.getZoom(); 
-});
+function nowStr() { return new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
 
-/* ---------------- START ---------------- */
-fetchRecentAndRender();
-setTimeout(()=>map.invalidateSize(),700);
-window.addEventListener('resize', ()=>setTimeout(()=>map.invalidateSize(),300));
+function parseMarkdown(text) {
+  return text
+    .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g,'<em>$1</em>')
+    .replace(/`(.*?)`/g,'<code style="background:rgba(0,200,255,0.1);padding:1px 5px;border-radius:4px;font-family:var(--mono);font-size:11px;color:var(--teal)">$1</code>')
+    .replace(/\n/g,'<br>');
+}
+
+function addBotMessage(text, isWelcome=false) {
+  const div=document.createElement('div'); div.className='msg bot';
+  const currentStatus=document.getElementById('statusText')?.textContent;
+  const contextPill=(!isWelcome&&currentStatus&&currentStatus!=='—')?`<div class="context-pill">📡 Live status: ${currentStatus}</div>`:'';
+  div.innerHTML=`<div class="msg-avatar">G</div><div>${contextPill}<div class="msg-bubble">${parseMarkdown(text)}</div><div class="msg-time">${nowStr()} · Gemini</div></div>`;
+  chatMessages.appendChild(div); chatMessages.scrollTop=chatMessages.scrollHeight;
+  if(!chatOpen){ unreadCount++; chatBadge.textContent=unreadCount; chatBadge.classList.add('show'); }
+}
+
+function addUserMessage(text) {
+  const div=document.createElement('div'); div.className='msg user';
+  div.innerHTML=`<div class="msg-avatar">U</div><div><div class="msg-bubble">${parseMarkdown(text)}</div><div class="msg-time">${nowStr()} · You</div></div>`;
+  chatMessages.appendChild(div); chatMessages.scrollTop=chatMessages.scrollHeight;
+}
+
+function showTyping() {
+  const div=document.createElement('div'); div.className='msg bot'; div.id='typingMsg';
+  div.innerHTML=`<div class="msg-avatar">G</div><div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
+  chatMessages.appendChild(div); chatMessages.scrollTop=chatMessages.scrollHeight;
+}
+function removeTyping() { const t=document.getElementById('typingMsg'); if(t) t.remove(); }
+
+function getLiveContext() {
+  const status=document.getElementById('statusText')?.textContent||'—';
+  const coords=document.getElementById('coordsText')?.textContent||'—';
+  const lastUp=document.getElementById('lastText')?.textContent||'—';
+  if(status==='—') return '';
+  return `\n\n[LIVE DATA]\nStatus: ${status}\nLocation: ${coords}\nLast updated: ${lastUp}\n[END]`;
+}
+
+async function callGemini(userMessage) {
+  if (!geminiApiKey) { apiKeyBanner.style.display='flex'; addBotMessage('⚠️ Please enter your **Gemini API key** to activate AI responses.'); return; }
+  isTyping=true; chatSend.disabled=true; showTyping();
+  const liveCtx=getLiveContext();
+  const fullUserMsg=liveCtx?`${userMessage}\n${liveCtx}`:userMessage;
+  conversationHistory.push({role:'user',parts:[{text:fullUserMsg}]});
+  const requestBody={system_instruction:{parts:[{text:SYSTEM_PROMPT}]},contents:conversationHistory,generationConfig:{temperature:0.7,maxOutputTokens:800}};
+  try {
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${geminiApiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(requestBody)});
+    if(!res.ok){ const err=await res.json().catch(()=>({})); throw new Error(err?.error?.message||`HTTP ${res.status}`); }
+    const data=await res.json();
+    const replyText=data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if(!replyText) throw new Error('No response from Gemini');
+    conversationHistory.push({role:'model',parts:[{text:replyText}]});
+    if(conversationHistory.length>20) conversationHistory=conversationHistory.slice(-20);
+    removeTyping(); addBotMessage(replyText);
+  } catch(err) {
+    removeTyping();
+    let errMsg=`❌ **Error:** ${err.message}`;
+    if(err.message.includes('API_KEY_INVALID')||err.message.includes('400')){ errMsg='❌ Invalid API key. Please re-enter.'; localStorage.removeItem('triovates_gemini_key'); geminiApiKey=''; apiKeyBanner.style.display='flex'; }
+    else if(err.message.includes('QUOTA')||err.message.includes('429')){ errMsg='⚠️ Rate limit reached. Wait a moment.'; }
+    addBotMessage(errMsg); conversationHistory.pop();
+  } finally { isTyping=false; chatSend.disabled=false; chatInput.focus(); }
+}
+
+async function sendMessage() {
+  const text=chatInput.value.trim(); if(!text||isTyping) return;
+  chatInput.value=''; chatInput.style.height='auto';
+  suggestions.style.display='none';
+  addUserMessage(text); await callGemini(text);
+}
+
+chatSend.addEventListener('click', sendMessage);
+chatInput.addEventListener('keydown', e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendMessage(); } });
+chatInput.addEventListener('input', ()=>{ chatInput.style.height='auto'; chatInput.style.height=Math.min(chatInput.scrollHeight,100)+'px'; });
+
+initChat();
 </script>
 </body>
 </html>
